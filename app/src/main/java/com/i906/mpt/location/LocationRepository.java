@@ -50,7 +50,9 @@ public class LocationRepository {
                     .onErrorResumeNext(new Func1<Throwable, Observable<? extends Location>>() {
                         @Override
                         public Observable<? extends Location> call(Throwable e) {
-                            if (mLastLocation == null) {
+                            if (e instanceof TimeoutException && mLastLocation == null) {
+                                return Observable.error(new LocationTimeoutException());
+                            } else if (mLastLocation == null) {
                                 return Observable.error(e);
                             } else {
                                 return Observable.just(mLastLocation);
