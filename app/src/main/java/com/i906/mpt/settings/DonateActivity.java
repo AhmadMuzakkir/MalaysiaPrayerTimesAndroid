@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import com.i906.mpt.R;
+import com.i906.mpt.analytics.AnalyticsProvider;
 import com.i906.mpt.common.BaseActivity;
 import com.i906.mpt.prefs.CommonPreferences;
 
@@ -20,6 +21,9 @@ import butterknife.OnClick;
  * @author Noorzaini Ilhami
  */
 public class DonateActivity extends BaseActivity {
+
+    @Inject
+    AnalyticsProvider mAnalyticsProvider;
 
     @Inject
     CommonPreferences mPreferences;
@@ -40,6 +44,8 @@ public class DonateActivity extends BaseActivity {
             mCodeView.setVisibility(View.VISIBLE);
             mDonateButton.setEnabled(false);
         }
+
+        mAnalyticsProvider.trackViewedScreen(AnalyticsProvider.SCREEN_DONATION);
     }
 
     @OnClick(R.id.btn_share)
@@ -66,6 +72,13 @@ public class DonateActivity extends BaseActivity {
         mPreferences.setAsGenerousUser();
         mDonateButton.setEnabled(false);
         mCodeView.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    protected void applyTheme() {
+        if (graph().getInterfacePreferences().isLightTheme()) {
+            setTheme(R.style.MptTheme_Light_Settings);
+        }
     }
 
     private Intent createLinkIntent(String link) {

@@ -7,14 +7,19 @@ apply from: '../jacoco.gradle'
 apply from: '../checkstyle.gradle'
 
 def IS_CI = "true".equals(System.getenv("CI"))
-def PRE_DEX = "true".equals(System.getProperty("pre-dex", "true"))
+
+def versionMajor = 2
+def versionMinor = 0
+def versionPatch = 1
+def versionBuild = (System.getenv('TRAVIS_BUILD_NUMBER') ?: 0) as Integer
+def sumVersionCode = versionMajor * 10000 + versionMinor * 1000 + versionPatch * 100 + versionBuild
 
 android {
     compileSdkVersion rootProject.ext.compileSdkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
 
     dexOptions {
-        preDexLibraries = PRE_DEX && !IS_CI
+        preDexLibraries = !IS_CI
     }
 
     defaultConfig {
@@ -22,20 +27,17 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
 
-        def versionMajor = 2
-        def versionMinor = 0
-        def versionPatch = 0
-        def versionBuild = (System.getenv('TRAVIS_BUILD_NUMBER') ?: 0) as Integer
-
-        versionCode versionMajor * 10000 + versionMinor * 1000 + versionPatch * 100 + versionBuild
+        versionCode sumVersionCode
         versionName "${versionMajor}.${versionMinor}.${versionPatch}"
 
         resValue 'string', 'foursquare_id', System.getenv('MPT_FOURSQUARE_ID') ?: MPT_FOURSQUARE_ID
         resValue 'string', 'foursquare_secret', System.getenv('MPT_FOURSQUARE_SECRET') ?: MPT_FOURSQUARE_SECRET
         resValue 'string', 'gcm_defaultSenderId', System.getenv('MPT_GCM_SENDER_ID') ?: MPT_GCM_SENDER_ID
+        resValue 'string', 'google_analytics_id', System.getenv('MPT_GOOGLE_ANALYTICS_ID') ?: MPT_GOOGLE_ANALYTICS_ID
         resValue 'string', 'google_app_id', System.getenv('MPT_GOOGLE_APP_ID') ?: MPT_GOOGLE_APP_ID
         resValue 'string', 'google_api_key', System.getenv('MPT_GOOGLE_API_KEY') ?: MPT_GOOGLE_API_KEY
         resValue 'string', 'google_crash_reporting_api_key', System.getenv('MPT_GOOGLE_CRASH_API_KEY') ?: MPT_GOOGLE_CRASH_API_KEY
+        resValue 'string', 'facebook_app_id', System.getenv('MPT_FACEBOOK_APP_ID') ?: MPT_FACEBOOK_APP_ID
 
         manifestPlaceholders = [
                 MPT_FABRIC_API_KEY: System.getenv('MPT_FABRIC_API_KEY') ?: MPT_FABRIC_API_KEY
@@ -67,6 +69,7 @@ android {
 
         beta {
             versionNameSuffix '-beta'
+            versionCode (sumVersionCode + 2)
         }
 
         prod {
@@ -110,12 +113,18 @@ paperwork {
 
 play {
     jsonFile = file('0c3c7fc227f6.json')
-    track = PLAY_STORE_TRACK
+    track = System.getProperty("PLAY_STORE_TRACK", PLAY_STORE_TRACK)
+    userFraction = 0.2
+
+    // https://github.com/Triple-T/gradle-play-publisher/issues/162
+    // untrackOld = true
 }
 
 dependencies {
     def BUTTERKNIFE_VERSION = rootProject.ext.BUTTERKNIFE_VERSION
     def DAGGER_VERSION = rootProject.ext.DAGGER_VERSION
+    def DEXMAKER_VERSION = '1.4'
+    def ESPRESSO_VERSION = '2.2.2'
     def FIREBASE_VERSION = rootProject.ext.FIREBASE_VERSION
     def MOCKITO_VERSION = rootProject.ext.MOCKITO_VERSION
     def OKHTTP_VERSION = rootProject.ext.OKHTTP_VERSION
@@ -138,6 +147,10 @@ dependencies {
 
     // Play Service
     compile "com.google.android.gms:play-services-location:$PLAYSERVICES_VERSION"
+    compile "com.google.android.gms:play-services-analytics:$PLAYSERVICES_VERSION"
+
+    // Firebase
+    compile "com.google.firebase:firebase-analytics:$FIREBASE_VERSION"
 
     // Butterknife
     compile "com.jakewharton:butterknife:$BUTTERKNIFE_VERSION"
@@ -170,17 +183,45 @@ dependencies {
     compile "com.jakewharton.timber:timber:$TIMBER_VERSION"
     compile 'hu.supercluster:paperwork:1.2.7'
     compile 'net.yslibrary.licenseadapter:licenseadapter:1.2.4'
+    compile 'com.facebook.android:facebook-android-sdk:[4,5)'
+    compile 'com.github.gabrielemariotti.changeloglib:changelog:2.1.0'
+    compile 'com.github.kizitonwose.colorpreference:core:1.0.2'
 
     testCompile 'junit:junit:4.12'
     testCompile "org.mockito:mockito-all:$MOCKITO_VERSION"
     testCompile "org.mockito:mockito-core:$MOCKITO_VERSION"
     testCompile 'org.assertj:assertj-core:1.7.1'
 
-    androidTestCompile 'com.android.support.test.espresso:espresso-core:2.2.2'
+    androidTestCompile 'com.github.fabioCollini:DaggerMock:0.6.2'
+    androidTestAnnotationProcessor "com.google.dagger:dagger-compiler:$DAGGER_VERSION"
+
+    androidTestCompile "com.crittercism.dexmaker:dexmaker:$DEXMAKER_VERSION"
+    androidTestCompile "com.crittercism.dexmaker:dexmaker-dx:$DEXMAKER_VERSION"
+    androidTestCompile "com.crittercism.dexmaker:dexmaker-mockito:$DEXMAKER_VERSION"
+
     androidTestCompile 'com.android.support.test:runner:0.5'
     androidTestCompile "com.android.support:support-annotations:$SUPPORT_VERSION"
+    androidTestCompile "com.android.support.test.espresso:espresso-core:$ESPRESSO_VERSION"
+    androidTestCompile "com.android.support.test.espresso:espresso-intents:$ESPRESSO_VERSION"
+
+    androidTestCompile("com.android.support.test.espresso:espresso-contrib:$ESPRESSO_VERSION") {
+        exclude module: 'support-v4'
+        exclude module: 'recyclerview-v7'
+        exclude module: 'appcompat-v4'
+        exclude module: 'design'
+    }
 
     compile('com.crashlytics.sdk.android:crashlytics:2.6.5@aar') {
         transitive = true;
+    }
+}
+
+task grantAnimationPermission(type: Exec, dependsOn: 'installMockDebug') {
+    commandLine "adb shell pm grant com.i906.mpt.staging android.permission.SET_ANIMATION_SCALE".split(' ')
+}
+
+tasks.whenTaskAdded { task ->
+    if (task.name.startsWith('connected')) {
+        task.dependsOn grantAnimationPermission
     }
 }

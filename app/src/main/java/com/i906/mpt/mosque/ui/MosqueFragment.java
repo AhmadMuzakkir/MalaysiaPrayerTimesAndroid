@@ -1,16 +1,16 @@
 package com.i906.mpt.mosque.ui;
 
-import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.res.TypedArray;
 import android.graphics.drawable.Animatable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
-import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.SwipeRefreshLayout;
+import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
@@ -21,11 +21,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.ViewFlipper;
 
-import com.google.android.gms.common.api.Status;
 import com.i906.mpt.R;
+import com.i906.mpt.analytics.AnalyticsProvider;
 import com.i906.mpt.api.foursquare.Mosque;
-import com.i906.mpt.common.BaseFragment;
-import com.i906.mpt.common.DividerItemDecoration;
+import com.i906.mpt.common.LocationFragment;
 import com.i906.mpt.location.LocationDisabledException;
 import com.i906.mpt.location.LocationTimeoutException;
 
@@ -39,17 +38,16 @@ import butterknife.OnClick;
 /**
  * @author Noorzaini Ilhami
  */
-public class MosqueFragment extends BaseFragment implements MosqueView, MosqueAdapter.MosqueListener {
+public class MosqueFragment extends LocationFragment implements MosqueView, MosqueAdapter.MosqueListener {
 
     private MosqueAdapter mAdapter;
     private Snackbar mSnackbar;
 
-    private boolean mPermissionError = false;
-    private boolean mLocationError = false;
-    private LocationDisabledException mLocationDisabledException;
-
     @Inject
     MosquePresenter mPresenter;
+
+    @Inject
+    AnalyticsProvider mAnalytics;
 
     @BindView(R.id.swipe_container)
     SwipeRefreshLayout mRefreshLayout;
@@ -96,8 +94,17 @@ public class MosqueFragment extends BaseFragment implements MosqueView, MosqueAd
         });
 
         LinearLayoutManager llm = new LinearLayoutManager(getActivity());
+
+        TypedArray ta = getActivity().obtainStyledAttributes(new int[] {R.attr.mosqueDividerDrawable});
+        Drawable divider = ta.getDrawable(0);
+        ta.recycle();
+
+        DividerItemDecoration decor = new DividerItemDecoration(getActivity(), DividerItemDecoration.VERTICAL);
+        decor.setDrawable(divider);
+
         mRecyclerView.setLayoutManager(llm);
-        mRecyclerView.addItemDecoration(new DividerItemDecoration(ContextCompat.getDrawable(getActivity(), R.drawable.divider)));
+        mRecyclerView.addItemDecoration(decor);
+
         if (mRecyclerView.getAdapter() == null) mRecyclerView.setAdapter(mAdapter);
 
         Drawable drawable = mProgressView.getDrawable();
@@ -129,38 +136,34 @@ public class MosqueFragment extends BaseFragment implements MosqueView, MosqueAd
     @Override
     public void showError(Throwable error) {
         showSwipeRefreshLoading(false);
+        setErrorFlags(error);
+
         if (mSnackbar != null) mSnackbar.dismiss();
 
-        if (error instanceof SecurityException) {
-            mRetryButton.setText(R.string.label_grant_permission);
-            mPermissionError = true;
-            mLocationError = false;
-        } else if (error instanceof LocationDisabledException || error instanceof LocationTimeoutException) {
-            if (error instanceof LocationDisabledException) {
-                mLocationDisabledException = (LocationDisabledException) error;
-            }
+        int errorMessage = 0;
 
+        if (error instanceof SecurityException) {
+            errorMessage = R.string.error_no_location_permission_mosque;
+            mRetryButton.setText(R.string.label_grant_permission);
+        } else if (error instanceof LocationDisabledException || error instanceof LocationTimeoutException) {
             if (hasLocationResolution()) {
                 mRetryButton.setText(R.string.label_enable_location);
             } else {
                 mRetryButton.setText(R.string.label_open_location_settings);
             }
-
-            mPermissionError = false;
-            mLocationError = true;
         } else {
             mRetryButton.setText(R.string.label_retry);
-            mPermissionError = false;
-            mLocationError = false;
         }
 
-        int errorMessage = getErrorMessage(error, R.string.error_unexpected);
+        if (errorMessage == 0) {
+            errorMessage = getErrorMessage(error, R.string.error_unexpected);
+        }
 
         if (mAdapter.isEmpty() || mViewFlipper.getDisplayedChild() != 1) {
             mViewFlipper.setDisplayedChild(2);
             mErrorMessageView.setText(errorMessage);
         } else {
-            mSnackbar = Snackbar.make(getView(), errorMessage, Snackbar.LENGTH_INDEFINITE)
+            mSnackbar = Snackbar.make(mRefreshLayout, errorMessage, Snackbar.LENGTH_INDEFINITE)
                     .setAction(R.string.label_retry, new View.OnClickListener() {
                         @Override
                         public void onClick(View view) {
@@ -173,24 +176,18 @@ public class MosqueFragment extends BaseFragment implements MosqueView, MosqueAd
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode == DEFAULT_PERMISSIONS_REQUEST_CODE) {
-            mPermissionError = false;
-            onRetryButtonClicked();
-        }
+    protected void recheckLocation() {
+        onRetryButtonClicked();
     }
 
     @OnClick(R.id.btn_retry)
     void onRetryButtonClicked() {
-        if (mPermissionError) {
+        if (hasPermissionError()) {
             requestLocationPermissions();
-        } else if (mLocationError) {
+        } else if (hasLocationError()) {
             if (hasLocationResolution()) {
                 try {
-                    Status status = mLocationDisabledException.getStatus();
-                    PendingIntent pi = status.getResolution();
-
-                    startIntentSenderForResult(pi.getIntentSender(),
+                    startIntentSenderForResult(getLocationResolution(),
                             DEFAULT_RESOLUTION_REQUEST_CODE, null, 0, 0, 0, null);
                 } catch (IntentSender.SendIntentException e) {
                     openLocationSettings();
@@ -214,10 +211,6 @@ public class MosqueFragment extends BaseFragment implements MosqueView, MosqueAd
         startActivity(intent);
     }
 
-    private boolean hasLocationResolution() {
-        return mLocationDisabledException != null && mLocationDisabledException.hasStatus();
-    }
-
     private void showSwipeRefreshLoading(final boolean loading) {
         mRefreshLayout.post(new Runnable() {
             @Override
@@ -225,6 +218,15 @@ public class MosqueFragment extends BaseFragment implements MosqueView, MosqueAd
                 mRefreshLayout.setRefreshing(loading);
             }
         });
+    }
+
+    @Override
+    public void setUserVisibleHint(boolean isVisibleToUser) {
+        super.setUserVisibleHint(isVisibleToUser);
+
+        if (isAdded() && isVisibleToUser) {
+            mAnalytics.trackViewedMosqueList();
+        }
     }
 
     @Override

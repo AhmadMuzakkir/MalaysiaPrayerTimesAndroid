@@ -1,5 +1,6 @@
 <manifest package="com.i906.mpt"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -26,7 +27,11 @@
         <activity
             android:name=".main.MainActivity"
             android:label="@string/app_name"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask" />
+
+        <activity-alias
+            android:name=".MainActivity"
+            android:targetActivity=".main.MainActivity">
             <intent-filter android:label="@string/app_name_short">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -35,12 +40,19 @@
                 <action android:name="${applicationId}.action.MAIN_SCREEN" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <activity
             android:name=".intro.MainIntroActivity"
             android:launchMode="singleTask"
             android:theme="@style/Theme.Intro" />
+
+        <activity
+            android:name=".settings.ChangeLogActivity"
+            android:label="@string/label_change_log"
+            android:launchMode="singleTask"
+            android:parentActivityName=".settings.SettingsActivity"
+            android:theme="@style/MptTheme.Settings" />
 
         <activity
             android:name=".settings.DonateActivity"
@@ -93,6 +105,22 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="com.facebook.FacebookActivity"
+            tools:node="remove" />
+
+        <activity
+            android:name="com.facebook.CustomTabActivity"
+            tools:node="remove" />
+
+        <activity
+            android:name="com.facebook.CustomTabMainActivity"
+            tools:node="remove" />
+
+        <activity
+            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+            tools:node="remove" />
+
         <provider
             android:name=".prayer.PrayerProvider"
             android:authorities="${applicationId}.provider.prayer"
@@ -119,6 +147,9 @@
             <intent-filter>
                 <action android:name="${applicationId}.action.PRAYER_TIME_UPDATED" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="${applicationId}.action.PRAYER_TIME_ERROR" />
+            </intent-filter>
 
             <meta-data
                 android:name="android.appwidget.provider"
@@ -134,6 +165,9 @@
             </intent-filter>
             <intent-filter>
                 <action android:name="${applicationId}.action.PRAYER_TIME_UPDATED" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="${applicationId}.action.PRAYER_TIME_ERROR" />
             </intent-filter>
 
             <meta-data
@@ -151,6 +185,9 @@
             <intent-filter>
                 <action android:name="${applicationId}.action.PRAYER_TIME_UPDATED" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="${applicationId}.action.PRAYER_TIME_ERROR" />
+            </intent-filter>
 
             <meta-data
                 android:name="android.appwidget.provider"
@@ -167,15 +204,15 @@
 
         <service android:name=".main.MainService" />
 
-        <service android:name=".widget.WidgetService">
-            <intent-filter>
-                <action android:name="${applicationId}.action.PRAYER_CONTEXT_UPDATED" />
-            </intent-filter>
-        </service>
+        <service android:name=".widget.WidgetService" />
 
         <meta-data
             android:name="io.fabric.ApiKey"
             android:value="${MPT_FABRIC_API_KEY}" />
+
+        <meta-data
+            android:name="com.facebook.sdk.ApplicationId"
+            android:value="@string/facebook_app_id" />
 
     </application>
 

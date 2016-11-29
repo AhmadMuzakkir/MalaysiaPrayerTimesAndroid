@@ -7,24 +7,25 @@ import android.support.annotation.Nullable;
 
 import com.i906.mpt.api.prayer.PrayerCode;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-
 /**
  * @author Noorzaini Ilhami
  */
-@Singleton
 public class LocationPreferences {
 
     private final SharedPreferences mPrefs;
 
-    @Inject
     public LocationPreferences(Context context) {
         mPrefs = PreferenceManager.getDefaultSharedPreferences(context);
     }
 
     public boolean isUsingAutomaticLocation() {
         return mPrefs.getBoolean("location_automatic", true);
+    }
+
+    public void setUsingAutomaticLocation(boolean enabled) {
+        mPrefs.edit()
+                .putBoolean("location_automatic", enabled)
+                .apply();
     }
 
     public boolean hasPreferredLocation() {

@@ -6,18 +6,13 @@ import android.preference.PreferenceManager;
 
 import com.i906.mpt.prayer.PrayerContext;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-
 /**
  * @author Noorzaini Ilhami
  */
-@Singleton
 public class InterfacePreferences implements PrayerContext.ViewSettings {
 
     private final SharedPreferences mPrefs;
 
-    @Inject
     public InterfacePreferences(Context context) {
         mPrefs = PreferenceManager.getDefaultSharedPreferences(context);
     }
@@ -45,5 +40,9 @@ public class InterfacePreferences implements PrayerContext.ViewSettings {
     @Override
     public boolean isMasihiDateEnabled() {
         return mPrefs.getBoolean("show_masihi", false);
+    }
+
+    public boolean isLightTheme() {
+        return mPrefs.getString("ui_theme", "dark").equals("light");
     }
 }
